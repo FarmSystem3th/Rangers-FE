@@ -19,8 +19,8 @@
 
 ## 가상 환경 실행 방법
 
-## Commit Convention
-> ex. Feat: 로그인 기능 구현
+## 🎯Commit Convention
+> ex) Feat: 로그인 기능 구현
 
 |Title|설명|
 |------|---|
@@ -37,3 +37,19 @@
 |Chore|빌드 테스트 업데이트, 패키지 매니저를 설정하는 경우 (프로덕션 코드 변경 X)|
 |Rename|파일 혹은 폴더명을 수정하거나 옮기는 작업만인 경우|
 |Remove|파일을 삭제하는 작업만 수행한 경우|
+
+## 💡PR convention
+> ex) 📝Docs: Update README.md
+|아이콘|코드|설명|
+|------|---|
+|🎨|:art|코드의 구조/형태 개선|
+|⚡️|:zap|성능 개선|
+|🔥|:fire|코드/파일 삭제|
+🐛	:bug	버그 수정
+🚑	:ambulance	긴급 수정
+✨	:sparkles	새 기능
+💄	:lipstick	UI/스타일 파일 추가/수정
+⏪	:rewind	변경 내용 되돌리기
+🔀	:twisted_rightwards_arrows	브랜치 합병
+💡	:bulb	주석 추가/수정
+🗃	:card_file_box	데이버베이스 관련 수정
