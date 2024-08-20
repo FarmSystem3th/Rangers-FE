@@ -1,8 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
-import FirstScreen from './pages/FirstPages/FirstScreen';
-import DeMainScreen from './pages/DependentPages/DeMainScreen';
-import GuMainScreen from './pages/GuardianPages/GuMainScreen'
+import FirstScreen from './src/pages/FirstPages/FirstScreen';
+import DeMainScreen from './src/pages/DependentPages/DeMainScreen';
+import GuMainScreen from './src/pages/GuardianPages/GuMainScreen'
 
 export default function App() {
   return (
