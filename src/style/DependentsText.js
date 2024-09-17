@@ -1,4 +1,3 @@
-/* eslint-disable react-native/no-inline-styles */
 import React from 'react';
 import { Text } from 'react-native';
 import { useLoadFonts } from './loadFonts'; 
