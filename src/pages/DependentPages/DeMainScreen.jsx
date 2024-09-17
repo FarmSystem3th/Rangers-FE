@@ -1,56 +1,55 @@
 import React from "react";
-import { SafeAreaView, View, Text, StyleSheet } from "react-native";
-import { useLoadFonts } from "../../style/loadFonts"; // 폰트 로드 파일 경로 확인
+import { SafeAreaView, View, StyleSheet } from "react-native";
+import { useLoadFonts } from "../../style/loadFonts";
+import YellowButton from "./components/YellowButton";
+import BlueButton from "./components/BlueButton";
+import DependentsText from "../../style/DependentsText"; // DependentsText 컴포넌트 임포트
+import WaveComponent from "./components/WaveComponent";
 
 const DeMainScreen = () => {
   const fontsLoaded = useLoadFonts();
 
   if (!fontsLoaded) {
-    return null; // 폰트가 로딩될 때까지는 아무것도 렌더링하지 않음
+    return null; // 폰트가 로드될 때까지는 아무것도 렌더링하지 않음
   }
+
+  const handleFindRoute = () => {
+    console.log("길찾기 버튼이 눌렸습니다.");
+  };
+
+  const handleNearby = () => {
+    console.log("내 주변 보기 버튼이 눌렸습니다.");
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFF" }}>
       <View style={styles.container}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>로고</Text>
-        </View>
         <View style={styles.mainContainer}>
-          <View style={styles.iconContainer}>
-            <View style={styles.icon}>
-              <View style={styles.iconBar1} />
-              <View style={styles.iconBar2} />
-            </View>
-          </View>
           <View style={styles.greetingContainer}>
-            <Text style={styles.greetingText}>
+            <DependentsText fontSize={30} lineHeight={42}>
               000님, 안녕하세요 ☺️{"\n"}무엇을 도와 드릴까요?
-            </Text>
+            </DependentsText>
           </View>
           <View style={styles.buttonContainer}>
-            <View style={styles.button}>
-              <View style={styles.buttonBackgroundYellow} />
-              <Text style={styles.buttonTextBlue}>길찾기</Text>
-            </View>
-            <View style={styles.button}>
-              <View style={styles.buttonBackgroundBlue} />
-              <Text style={styles.buttonTextYellow}>내 주변 보기</Text>
-            </View>
-          </View>
-          <View style={styles.stripContainer}>
-            <View style={styles.strips}>
-              {[...Array(12)].map((_, index) => (
-                <View key={index} style={styles.strip} />
-              ))}
-            </View>
-            <View style={[styles.strips, { marginLeft: 109 }]}>
-              {[...Array(12)].map((_, index) => (
-                <View key={index} style={styles.strip} />
-              ))}
-            </View>
+            <YellowButton
+              width={285}
+              height={70}
+              fontSize={42}
+              text="길찾기"
+              onPress={handleFindRoute}
+            />
+
+            <BlueButton
+              width={285}
+              height={70}
+              fontSize={42}
+              text="내 주변 보기"
+              onPress={handleNearby}
+            />
           </View>
         </View>
       </View>
+      <WaveComponent />
     </SafeAreaView>
   );
 };
@@ -60,60 +59,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "white",
-    borderColor: "black",
-    borderWidth: 1,
   },
-  logoContainer: {
-    width: 200,
-    height: 100,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  logoText: {
-    fontSize: 40,
-    fontFamily: "Gmarket-Sans-Bold", // 정확한 폰트 이름 적용
-    fontWeight: "500",
-    color: "black",
-  },
+
   mainContainer: {
-    width: "90%",
+    width: "100%",
     height: "auto",
     alignItems: "center",
+    gap: 44,
   },
-  iconContainer: {
-    width: 60,
-    height: 50,
-    marginBottom: 20,
-    backgroundColor: "transparent",
-    alignItems: "center",
-  },
-  icon: {
-    flexDirection: "row",
-  },
-  iconBar1: {
-    width: 18.75,
-    height: 29.17,
-    borderWidth: 5,
-    borderColor: "black",
-    marginRight: 10,
-  },
-  iconBar2: {
-    width: 13.45,
-    height: 29.46,
-    borderWidth: 5,
-    borderColor: "black",
-  },
+
   greetingContainer: {
     width: "100%",
     alignItems: "center",
-    marginBottom: 20,
   },
   greetingText: {
-    fontSize: 30,
-    fontFamily: "Gmarket-Sans-Medium", // 정확한 폰트 이름 적용
-    fontWeight: "700",
     color: "black",
     textAlign: "center",
   },
@@ -121,45 +80,8 @@ const styles = StyleSheet.create({
     width: "100%",
     marginTop: 20,
     alignItems: "center",
-  },
-  button: {
-    width: 285,
-    height: 70,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  buttonBackgroundYellow: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-    backgroundColor: "#FFEE00",
-    borderRadius: 20,
-    borderColor: "#213B6D",
-    borderWidth: 5,
-  },
-  buttonTextBlue: {
-    color: "#213B6D",
-    fontSize: 42,
-    fontFamily: "Gmarket-Sans-Bold", // 정확한 폰트 이름 적용
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  buttonBackgroundBlue: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-    backgroundColor: "#213B6D",
-    borderRadius: 20,
-    borderColor: "#213B6D",
-    borderWidth: 3,
-  },
-  buttonTextYellow: {
-    color: "#FFEC00",
-    fontSize: 42,
-    fontFamily: "Gmarket-Sans-Bold", // 정확한 폰트 이름 적용
-    fontWeight: "700",
-    textAlign: "center",
+    margin: 22,
+    gap: 48,
   },
   stripContainer: {
     width: "100%",
