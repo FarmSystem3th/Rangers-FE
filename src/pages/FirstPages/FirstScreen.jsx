@@ -3,6 +3,7 @@ import { SafeAreaView, View, Text, Button } from "react-native";
 import { createStackNavigator } from "@react-navigation/stack";
 import DeMainScreen from "../DependentPages/DeMainScreen";
 import GuMainScreen from "../GuardianPages/GuMainScreen";
+import DeMainStack from "../DependentPages/stack/DeMainStack"; // DeMainStack 경로 확인
 
 const Stack = createStackNavigator();
 
@@ -17,7 +18,7 @@ const MainScreen = ({ navigation }) => {
         </Text>
         <Button
           title="피부양자 화면"
-          onPress={() => navigation.navigate("DeMain")}
+          onPress={() => navigation.navigate("DeMainStack")} // DeMainStack으로 이동
         />
         <Button
           title="보호자 화면"
@@ -37,9 +38,9 @@ const FirstScreen = () => {
         options={{ headerShown: false }} // MainScreen의 헤더 숨기기
       />
       <Stack.Screen
-        name="DeMain"
-        component={DeMainScreen}
-        options={{ headerShown: false }} // DeMainScreen의 헤더 숨기기
+        name="DeMainStack" // DeMainStack 등록
+        component={DeMainStack} // DeMainStack 컴포넌트 추가
+        options={{ headerShown: false }} // DeMainStack의 헤더 숨기기
       />
       <Stack.Screen
         name="GuMain"

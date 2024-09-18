@@ -27,7 +27,7 @@ const useAudioRecording = () => {
       setIsRecording(true);
       console.log("녹음이 시작되었습니다.");
 
-      // 9초 후 자동으로 녹음 중지(근데 9초가 안되는 듯)
+      // 9초 후 자동으로 녹음 중지
       setTimeout(() => {
         stopRecording();
       }, 9000);
