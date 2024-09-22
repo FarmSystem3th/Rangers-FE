@@ -1,9 +1,9 @@
-import React from "react";
-import { SafeAreaView, View, Text, Button } from "react-native";
+import React, { useEffect } from "react";
+import { SafeAreaView, View, Text, Button, Alert } from "react-native";
 import { createStackNavigator } from "@react-navigation/stack";
-import DeMainScreen from "../DependentPages/DeMainScreen";
 import GuMainScreen from "../GuardianPages/GuMainScreen";
-import DeMainStack from "../DependentPages/stack/DeMainStack"; // DeMainStack 경로 확인
+import DeMainStack from "../DependentPages/stack/DeMainStack";
+import Test from "../DependentPages/Test";
 
 const Stack = createStackNavigator();
 
@@ -23,6 +23,10 @@ const MainScreen = ({ navigation }) => {
         <Button
           title="보호자 화면"
           onPress={() => navigation.navigate("GuMain")}
+        />
+        <Button
+          title="테스트 화면"
+          onPress={() => navigation.navigate("Test")}
         />
       </View>
     </SafeAreaView>
@@ -46,6 +50,11 @@ const FirstScreen = () => {
         name="GuMain"
         component={GuMainScreen}
         options={{ headerShown: false }} // GuMainScreen의 헤더 숨기기
+      />
+      <Stack.Screen
+        name="Test"
+        component={Test}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );
