@@ -1,96 +1,215 @@
 import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
-  Image,
   StyleSheet,
-  Text,
-  TextInput,
-  Button,
+  Alert,
+  View,
+  TouchableOpacity,
+  Image,
 } from "react-native";
-import { getStaticMap } from "../../libs/apis/api/getStaticMap";
+import { WebView } from "react-native-webview";
+import useImageToBase64 from "./hooks/useImageToBase64";
+import * as Location from "expo-location";
+import BigModal from "./components/BigModal";
+import PinkButton from "./components/PinkButton";
 
-const DeRouteScreen = () => {
-  const [mapUrl, setMapUrl] = useState("");
-  const [zoom, setZoom] = useState("15"); // 기본 줌 레벨
-  const [width, setWidth] = useState("512"); // 기본 너비
-  const [height, setHeight] = useState("512"); // 기본 높이
+const DeRouteScreen = ({ navigation }) => {
+  const [latitude, setLatitude] = useState(null); // 현재 위도
+  const [longitude, setLongitude] = useState(null); // 현재 경도
+  const [isEmergencyModalVisible, setIsEmergencyModalVisible] = useState(false); // 긴급 모달 상태
+  const [isEndModalVisible, setIsEndModalVisible] = useState(false); // 안내 종료 모달 상태
+  const appKey = "EDhNkmXDhZ6Vec82hJfcS4JbTCOk5GET8y2cFrGQ"; // TMap API Key
 
-  const fetchMap = async () => {
-    try {
-      const blob = await getStaticMap(
-        126.98452047, // 경도
-        37.56656541, // 위도
-        parseInt(zoom), // 줌 레벨
-        parseInt(width), // 너비
-        parseInt(height) // 높이
+  const destination = {
+    lat: 37.5351667, // 테스트용 위도
+    lon: 127.0722132, // 테스트용 경도
+  };
+
+  const { imageBase64: startMarkerBase64, error: startMarkerError } =
+    useImageToBase64(require("../DependentPages/assets/start.png"));
+  const { imageBase64: endMarkerBase64, error: endMarkerError } =
+    useImageToBase64(require("../DependentPages/assets/end.png"));
+
+  useEffect(() => {
+    const startWatchingPosition = async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission denied", "Location permission is required.");
+        return;
+      }
+
+      Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 3000, // 위치 업데이트 간격
+          distanceInterval: 1, // 최소 이동 거리
+        },
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setLatitude(latitude);
+          setLongitude(longitude);
+        }
       );
+    };
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64data = reader.result;
-        console.log("Base64 이미지 URL:", base64data); // Base64 URL 콘솔 출력
-        setMapUrl(base64data); // 상태 업데이트
-      };
+    startWatchingPosition();
+  }, []);
 
-      reader.readAsDataURL(blob); // Blob을 Base64로 변환
-    } catch (error) {
-      console.error("지도 로드 실패:", error);
+  if (startMarkerError || endMarkerError) {
+    return (
+      <View style={styles.container}>
+        <Text>
+          Error loading image:{" "}
+          {startMarkerError?.message || endMarkerError?.message}
+        </Text>
+      </View>
+    );
+  }
+
+  const mapHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+      <title>Nearby Map</title>
+      <script src="https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${appKey}"></script>
+      <script type="text/javascript">
+        var map;
+
+        function fetchRoute() {
+          return fetch("https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1&format=json", {
+            method: "POST",
+            headers: {
+              appKey: "${appKey}",
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              startX: ${longitude},
+              startY: ${latitude},
+              endX: ${destination.lon},
+              endY: ${destination.lat},
+              reqCoordType: "WGS84GEO",
+              resCoordType: "EPSG3857",
+              startName: "출발지",
+              endName: "도착지"
+            })
+          })
+          .then(response => response.json())
+          .then(data => data.features)
+          .catch(error => console.error("Error fetching route:", error));
+        }
+
+        async function initTmap(){
+          map = new Tmapv2.Map("map_div", {
+            center: new Tmapv2.LatLng(${latitude}, ${longitude}),
+            width: "100%",
+            height: "100%",
+            zoom: 19
+          });
+
+          var marker_s = new Tmapv2.Marker({
+            position: new Tmapv2.LatLng(${latitude}, ${longitude}),
+            icon: "${startMarkerBase64}",
+            iconSize: new Tmapv2.Size(250, 240),
+            map: map
+          });
+
+          var marker_e = new Tmapv2.Marker({
+            position: new Tmapv2.LatLng(${destination.lat}, ${destination.lon}),
+            icon: "${endMarkerBase64}",
+            iconSize: new Tmapv2.Size(250, 240),
+            map: map
+          });
+
+          const routeData = await fetchRoute();
+
+          if (routeData) {
+            var polylineCoords = routeData.map(function(feature) {
+              return new Tmapv2.LatLng(
+                feature.geometry.coordinates[1],
+                feature.geometry.coordinates[0]
+              );
+            });
+
+            var polyline = new Tmapv2.Polyline({
+              path: polylineCoords,
+              strokeColor: "#dd00dd",
+              strokeWeight: 6,
+              strokeStyle: "solid",
+              map: map
+            });
+          }
+        }
+      </script>
+      <style>
+        body, html { margin: 0; padding: 0; height: 100%; }
+        #map_div { width: 100%; height: 100%; }
+      </style>
+    </head>
+    <body onload="initTmap()">
+      <div id="map_div"></div>
+    </body>
+    </html>
+  `;
+
+  const onEmergencyPress = () => {
+    setIsEmergencyModalVisible(true); // 긴급 모달 표시
+  };
+
+  const onEndPress = () => {
+    setIsEndModalVisible(true); // 안내 종료 모달 표시
+  };
+
+  const handleEndModalClose = (answer) => {
+    if (answer === "yes") {
+      navigation.navigate("DeMain"); // DeMainScreen으로 이동
     }
-  };
-
-  const increaseZoom = () => {
-    setZoom((prev) => {
-      const newZoom = (parseInt(prev) + 1).toString();
-      fetchMap(); // 줌 레벨 변경 후 지도를 다시 로드
-      return newZoom;
-    });
-  };
-
-  const decreaseZoom = () => {
-    setZoom((prev) => {
-      const newZoom = (parseInt(prev) - 1).toString();
-      fetchMap(); // 줌 레벨 변경 후 지도를 다시 로드
-      return newZoom;
-    });
+    setIsEndModalVisible(false); // 안내 종료 모달 닫기
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text>Zoom Level:</Text>
-      <TextInput
-        style={styles.input}
-        keyboardType="numeric"
-        value={zoom}
-        onChangeText={setZoom}
-      />
-      <Text>Width:</Text>
-      <TextInput
-        style={styles.input}
-        keyboardType="numeric"
-        value={width}
-        onChangeText={setWidth}
-      />
-      <Text>Height:</Text>
-      <TextInput
-        style={styles.input}
-        keyboardType="numeric"
-        value={height}
-        onChangeText={setHeight}
-      />
-      <Button title="Fetch Map" onPress={fetchMap} />
-
-      <Button title="Zoom In" onPress={increaseZoom} />
-      <Button title="Zoom Out" onPress={decreaseZoom} />
-
-      {mapUrl ? (
-        <Image
-          source={{ uri: mapUrl }} // Base64 URL로 이미지 표시
-          style={styles.mapImage}
-          resizeMode="cover"
+      <View style={styles.webviewContainer}>
+        <WebView
+          originWhitelist={["*"]}
+          source={{ html: mapHTML }}
+          style={styles.webview}
         />
-      ) : (
-        <Text>지도 로딩 중...</Text>
-      )}
+        <TouchableOpacity
+          style={styles.emergencyButton}
+          onPress={onEmergencyPress}
+        >
+          <Image
+            source={require("./assets/emergency.png")} // 경로 수정
+            style={styles.emergencyImage}
+          />
+        </TouchableOpacity>
+
+        {/* 긴급 모달 */}
+        <BigModal
+          visible={isEmergencyModalVisible}
+          modalText={"긴급상황이 맞으신가요?"}
+          onClose={() => setIsEmergencyModalVisible(false)} // 긴급 모달 닫기
+        />
+
+        {/* 안내 종료 모달 */}
+        <BigModal
+          visible={isEndModalVisible}
+          modalText={"안내를 종료 하시겠습니까?"}
+          onClose={handleEndModalClose} // 안내 종료 모달의 "예" 또는 "아니오" 처리
+        />
+
+        {/* 안내 종료 버튼 */}
+        <View style={styles.buttonContainer}>
+          <PinkButton
+            width={250}
+            height={70}
+            fontSize={42}
+            text="안내 종료"
+            onPress={onEndPress} // 안내 종료 버튼 클릭 시
+          />
+        </View>
+      </View>
     </SafeAreaView>
   );
 };
@@ -100,20 +219,38 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    backgroundColor: "#FFF",
   },
-  input: {
-    width: 100,
-    borderColor: "gray",
-    borderWidth: 1,
-    marginVertical: 10,
-    padding: 5,
-    textAlign: "center",
+  webviewContainer: {
+    width: "100%",
+    height: "100%",
   },
-  mapImage: {
-    width: 512,
-    height: 512,
-    marginTop: 20,
+  webview: {
+    width: "100%",
+    height: "100%",
+  },
+  emergencyButton: {
+    position: "absolute",
+    top: 70,
+    right: 30,
+    width: 70,
+    height: 70,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emergencyImage: {
+    width: 83,
+    height: 80,
+  },
+  buttonContainer: {
+    position: "absolute",
+    bottom: 30,
+    left: "38%",
+    right: "40%",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: "auto",
+    marginRight: "auto",
   },
 });
 

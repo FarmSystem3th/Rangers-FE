@@ -10,9 +10,9 @@ const useAudioRecording = () => {
   const startRecording = async () => {
     try {
       // 기존 녹음이 있으면 중지
-      if (isRecording) {
-        await stopRecording();
-      }
+      // if (isRecording) {
+      //   await stopRecording();
+      // }
 
       console.log("녹음 시작 중...");
       await Audio.setAudioModeAsync({

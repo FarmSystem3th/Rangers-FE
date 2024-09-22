@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { SafeAreaView, View, StyleSheet } from "react-native";
 import { useLoadFonts } from "../../style/loadFonts";
 import YellowButton from "./components/YellowButton";
@@ -10,32 +10,39 @@ import useTTS from "./hooks/useTTS";
 
 const DeMainScreen = ({ navigation }) => {
   const { isRecording, startRecording, stopRecording } = useAudioRecording();
-  const { stopTTS } = useTTS(); // TTS 중지 함수 가져오기
+  const { startTTS, stopTTS } = useTTS();
   const fontsLoaded = useLoadFonts();
+  const [hasSpoken, setHasSpoken] = useState(false);
 
   const greetingText =
-    "000님! 안녕하세요, Rangers map 입니다. 길찾기와 내 주변 보기 중 어떤 것이 필요하신가요? 말씀해주세요."; // TTS에 사용할 멘트
+    "000님! 안녕하세요, Rangers map 입니다. 길찾기와 내 주변 보기 중 어떤 것이 필요하신가요? 말씀해주세요.";
 
-  useTTS(greetingText, startRecording);
+  useEffect(() => {
+    {
+      startTTS(greetingText, startRecording);
+      setHasSpoken(true);
+    }
+
+    return () => {
+      stopTTS();
+      stopRecording();
+    };
+  }, []);
 
   if (!fontsLoaded) {
-    return null; // 폰트가 로드될 때까지는 아무것도 렌더링하지 않음
+    return null;
   }
 
   const handleFindRoute = () => {
-    if (isRecording) {
-      stopRecording(); // 녹음 중이라면 중지
-    }
-    stopTTS(); // TTS 중지
-    navigation.navigate("PreDeRouteScreen"); // DeRouteScreen으로 이동
+    stopTTS();
+    stopRecording();
+    navigation.navigate("PreDeRouteScreen");
   };
 
   const handleNearby = () => {
-    if (isRecording) {
-      stopRecording(); // 녹음 중이라면 중지
-    }
-    stopTTS(); // TTS 중지
-    navigation.navigate("DeNearByScreen"); // DeRouteScreen으로 이동
+    stopTTS();
+    stopRecording();
+    navigation.navigate("DeNearByScreen");
   };
 
   return (
