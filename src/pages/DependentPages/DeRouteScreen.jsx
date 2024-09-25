@@ -12,8 +12,8 @@ import useImageToBase64 from "./hooks/useImageToBase64";
 import * as Location from "expo-location";
 import BigModal from "./components/BigModal";
 import PinkButton from "./components/PinkButton";
-import { savePath } from "../../libs/apis/api/savePath";
 import { getSafeZones } from "../../libs/apis/api/getSafeZones"; // 안전 구역 API import
+import { getDangerZones } from "../../libs/apis/api/getDangerZones"; // 위험 구역 API import
 
 const DeRouteScreen = ({ navigation }) => {
   const [latitude, setLatitude] = useState(null); // 현재 위도
@@ -22,6 +22,7 @@ const DeRouteScreen = ({ navigation }) => {
   const [isEndModalVisible, setIsEndModalVisible] = useState(false); // 안내 종료 모달 상태
   const [routeData, setRouteData] = useState(null); // fetchRoute의 결과를 저장할 상태
   const [safeZoneData, setSafeZoneData] = useState([]); // 안전 구역 데이터를 저장할 상태
+  const [dangerZoneData, setDangerZoneData] = useState([]); // 위험 구역 데이터를 저장할 상태
   const appKey = "EDhNkmXDhZ6Vec82hJfcS4JbTCOk5GET8y2cFrGQ"; // TMap API Key
 
   const destination = {
@@ -35,6 +36,8 @@ const DeRouteScreen = ({ navigation }) => {
     useImageToBase64(require("../DependentPages/assets/end.png"));
   const { imageBase64: safeMarkerBase64, error: safeMarkerError } =
     useImageToBase64(require("../DependentPages/assets/Safe.png"));
+  const { imageBase64: dangerMarkerBase64, error: dangerMarkerError } =
+    useImageToBase64(require("../DependentPages/assets/Danger.png")); // 위험 구역 마커 이미지 로드
 
   useEffect(() => {
     const startWatchingPosition = async () => {
@@ -66,16 +69,29 @@ const DeRouteScreen = ({ navigation }) => {
         setSafeZoneData(safeZones); // 상태에 안전 구역 데이터 설정
       }
     });
+
+    // 위험 구역 데이터를 가져오기
+    getDangerZones().then((dangerZones) => {
+      if (dangerZones) {
+        setDangerZoneData(dangerZones); // 상태에 위험 구역 데이터 설정
+      }
+    });
   }, []);
 
-  if (startMarkerError || endMarkerError || safeMarkerError) {
+  if (
+    startMarkerError ||
+    endMarkerError ||
+    safeMarkerError ||
+    dangerMarkerError
+  ) {
     return (
       <View style={styles.container}>
         <Text>
           Error loading image:{" "}
           {startMarkerError?.message ||
             endMarkerError?.message ||
-            safeMarkerError?.message}
+            safeMarkerError?.message ||
+            dangerMarkerError?.message}
         </Text>
       </View>
     );
@@ -172,6 +188,21 @@ const DeRouteScreen = ({ navigation }) => {
           });
         }
 
+        function addDangerMarkers(dangerData) {
+          dangerData.forEach((data) => {
+            var marker = new Tmapv2.Marker({
+              position: new Tmapv2.LatLng(data.latitude, data.longitude),
+              icon: "${dangerMarkerBase64}",
+              iconSize: new Tmapv2.Size(150, 150),
+              map: map
+            });
+
+            marker.addListener("click", function(evt) {
+              window.ReactNativeWebView.postMessage("danger_marker_clicked");
+            });
+          });
+        }
+
         async function initTmap() {
           map = new Tmapv2.Map("map_div", {
             center: new Tmapv2.LatLng(${latitude}, ${longitude}),
@@ -198,6 +229,9 @@ const DeRouteScreen = ({ navigation }) => {
           addSafeMarkers(${JSON.stringify(
             safeZoneData
           )}); // 안전 구역 마커 추가
+          addDangerMarkers(${JSON.stringify(
+            dangerZoneData
+          )}); // 위험 구역 마커 추가
         }
       </script>
       <style>
