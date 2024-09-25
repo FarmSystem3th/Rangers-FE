@@ -16,11 +16,13 @@ import { getSafeZones } from "../../libs/apis/api/getSafeZones";
 import { getDangerZones } from "../../libs/apis/api/getDangerZones";
 import { getPedestrianRoute } from "../../libs/apis/api/getPedestrianRoute";
 import { getPlacePoiInfo } from "../../libs/apis/api/getPlacePoiInfo";
-import { saveRoute } from "../../libs/apis/api/saveRoute"; // 길찾기 저장 API import
+import { saveRoute } from "../../libs/apis/api/saveRoute";
+import { reverseGeocoding } from "../../libs/apis/api/reverseGeocoding";
 
 const DeRouteScreen = ({ route, navigation }) => {
   const [latitude, setLatitude] = useState(null); // 현재 위도
   const [longitude, setLongitude] = useState(null); // 현재 경도
+  const [startAddress, setStartAddress] = useState("현재 위치"); // 현재 위치 주소 저장
   const [isEmergencyModalVisible, setIsEmergencyModalVisible] = useState(false); // 긴급 모달 상태
   const [isEndModalVisible, setIsEndModalVisible] = useState(false); // 안내 종료 모달 상태
   const [routeData, setRouteData] = useState(null); // fetchRoute의 결과를 저장할 상태
@@ -60,77 +62,78 @@ const DeRouteScreen = ({ route, navigation }) => {
             timeInterval: 3000, // 위치 업데이트 간격
             distanceInterval: 1, // 최소 이동 거리
           },
-          (position) => {
+          async (position) => {
             const { latitude, longitude } = position.coords;
             setLatitude(latitude);
             setLongitude(longitude);
+
+            // 역지오코딩으로 현재 위치의 주소 가져오기
+            const addressInfo = await reverseGeocoding(
+              latitude,
+              longitude,
+              appKey
+            );
+            if (addressInfo && addressInfo.addressInfo) {
+              const fullAddress = addressInfo.addressInfo.fullAddress;
+              setStartAddress(fullAddress);
+              console.log("현재 위치의 주소:", fullAddress);
+            }
+
+            // 도착지 정보 가져오기
+            const poiInfo = await getPlacePoiInfo(destination, appKey);
+            if (poiInfo) {
+              console.log("검색된 장소의 정보:", poiInfo);
+              setDestinationInfo(poiInfo);
+
+              // 길찾기 정보 저장
+              const routeSaveData = {
+                userId: 1, // 사용자 ID (예시)
+                start: startAddress, // 현재 위치의 주소
+                end: poiInfo.name, // 목적지 이름
+                startLatitude: latitude, // 현재 위치 위도
+                startLongitude: longitude, // 현재 위치 경도
+                endLatitude: poiInfo.latitude, // 목적지 위도
+                endLongitude: poiInfo.longitude, // 목적지 경도
+              };
+
+              const savedRoute = await saveRoute(routeSaveData);
+              console.log("저장된 길찾기 정보:", savedRoute);
+
+              // 길찾기 경로 데이터 가져오기
+              const routeOptions = {
+                headers: {
+                  accept: "application/json",
+                  "content-type": "application/json",
+                  appKey,
+                },
+                body: {
+                  startX: longitude,
+                  startY: latitude,
+                  angle: 20,
+                  speed: 30,
+                  endPoiId: poiInfo.poiId,
+                  endX: poiInfo.longitude,
+                  endY: poiInfo.latitude,
+                  passList: "126.92774822,37.55395475_126.92577620,37.55337145",
+                  reqCoordType: "WGS84GEO",
+                  startName: "%EC%B6%9C%EB%B0%9C",
+                  endName: "%EB%8F%84%EC%B0%A9",
+                  searchOption: "0",
+                  resCoordType: "WGS84GEO",
+                  sort: "index",
+                },
+              };
+
+              const routePoints = await getPedestrianRoute(routeOptions);
+              if (routePoints) {
+                console.log("Route Points Data:", routePoints.join("\n"));
+                setRouteData(routePoints);
+              }
+            }
           }
         );
-
-        // 안전 구역 데이터 가져오기
-        const safeZones = await getSafeZones();
-        if (safeZones) setSafeZoneData(safeZones);
-
-        // 위험 구역 데이터 가져오기
-        const dangerZones = await getDangerZones();
-        if (dangerZones) setDangerZoneData(dangerZones);
-
-        // 도착지 정보 데이터 가져오기
-        const poiInfo = await getPlacePoiInfo(destination, appKey);
-        if (poiInfo) {
-          console.log("검색된 장소의 정보:", poiInfo);
-          setDestinationInfo(poiInfo); // 목적지 정보 저장
-        }
-
-        // 경로와 길찾기 정보 저장
-        if (latitude && longitude && poiInfo) {
-          // 길찾기 데이터 가져오기
-          const options = {
-            headers: {
-              accept: "application/json",
-              "content-type": "application/json",
-              appKey,
-            },
-            body: {
-              startX: longitude,
-              startY: latitude,
-              angle: 20,
-              speed: 30,
-              endPoiId: poiInfo.poiId,
-              endX: poiInfo.longitude,
-              endY: poiInfo.latitude,
-              passList: "126.92774822,37.55395475_126.92577620,37.55337145",
-              reqCoordType: "WGS84GEO",
-              startName: "%EC%B6%9C%EB%B0%9C",
-              endName: "%EB%8F%84%EC%B0%A9",
-              searchOption: "0",
-              resCoordType: "WGS84GEO",
-              sort: "index",
-            },
-          };
-
-          const routePoints = await getPedestrianRoute(options);
-          if (routePoints) {
-            console.log("Route Points Data:", routePoints.join("\n"));
-            setRouteData(routePoints);
-          }
-
-          // 길찾기 정보를 서버에 저장
-          const routeSaveData = {
-            userId: 1, // 사용자 ID (예시)
-            start: "현재 위치", // 출발지 이름
-            end: poiInfo.name, // 목적지 이름
-            startLatitude: latitude, // 현재 위치 위도
-            startLongitude: longitude, // 현재 위치 경도
-            endLatitude: poiInfo.latitude, // 목적지 위도
-            endLongitude: poiInfo.longitude, // 목적지 경도
-          };
-
-          const savedRoute = await saveRoute(routeSaveData);
-          console.log("저장된 길찾기 정보:", savedRoute);
-        }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching location or address:", error);
       }
     };
 
@@ -143,7 +146,7 @@ const DeRouteScreen = ({ route, navigation }) => {
         locationSubscription.remove();
       }
     };
-  }, [latitude, longitude, destination]); // 목적지, 현재 위치가 변경될 때만 실행
+  }, [destination, startAddress, appKey]);
 
   if (
     startMarkerError ||
@@ -236,8 +239,6 @@ const DeRouteScreen = ({ route, navigation }) => {
             });
           });
         }
-
-        
       </script>
       <style>
         body, html { margin: 0; padding: 0; height: 100%; }
