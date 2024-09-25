@@ -1,39 +1,50 @@
-import React, { useState } from "react";
-import {
-  SafeAreaView,
-  View,
-  StyleSheet,
-  TextInput,
-  Button,
-} from "react-native";
+import React, { useState, useEffect } from "react";
+import { SafeAreaView, View, StyleSheet, TextInput } from "react-native";
 import { useLoadFonts } from "../../style/loadFonts";
 import DependentsText from "../../style/DependentsText";
 import WaveComponent from "./components/WaveComponent";
 import useAudioRecording from "./hooks/useSTTrecording";
 import useTTS from "./hooks/useTTS";
 import BlueButton from "./components/BlueButton";
+import BigModal from "./components/BigModal"; // BigModal import
 
 const PreDeRouteScreen = ({ navigation }) => {
   const { isRecording, startRecording, stopRecording } = useAudioRecording();
-  const { stopTTS } = useTTS(); // TTS 중지 함수 가져오기
+  const { startTTS, stopTTS } = useTTS();
   const fontsLoaded = useLoadFonts();
-  const [destination, setDestination] = useState(""); // 목적지 상태 관리
-  const [isPlaceholderVisible, setPlaceholderVisible] = useState(true); // 플레이스홀더 표시 여부
-
+  const [destination, setDestination] = useState("");
+  const [isPlaceholderVisible, setPlaceholderVisible] = useState(true);
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [hasSpoken, setHasSpoken] = useState(false); // TTS 중복 방지
   const greetingText = "목적지를 말씀해 주세요."; // TTS에 사용할 멘트
 
-  useTTS(greetingText, startRecording);
+  // TTS가 처음 한 번만 실행되도록 설정
+  useEffect(() => {
+    {
+      startTTS(greetingText, startRecording); // TTS 완료 후 녹음 시작
+    }
+
+    return () => {
+      stopTTS(); // 컴포넌트 언마운트 시 TTS 중지
+      stopRecording(); // 컴포넌트 언마운트 시 녹음 중지
+    };
+  }, []);
 
   if (!fontsLoaded) {
-    return null; // 폰트가 로드될 때까지는 아무것도 렌더링하지 않음
+    return null; // 폰트가 로드될 때까지 아무것도 렌더링하지 않음
   }
 
   const handleFindRoute = () => {
-    if (isRecording) {
-      stopRecording(); // 녹음 중이라면 중지
-    }
     stopTTS(); // TTS 중지
-    navigation.navigate("DeRouteScreen", { destination }); // DeRouteScreen으로 이동하고 목적지 전달
+    stopRecording(); // 녹음 중지
+    setModalVisible(true); // 모달 열기
+  };
+
+  const handleModalClose = (answer) => {
+    setModalVisible(false); // 모달 닫기
+    if (answer === "yes") {
+      navigation.navigate("DeRouteScreen", { destination }); // DeRouteScreen으로 이동 및 목적지 전달
+    }
   };
 
   return (
@@ -80,6 +91,11 @@ const PreDeRouteScreen = ({ navigation }) => {
         </View>
       </View>
       {isRecording && <WaveComponent />}
+      <BigModal
+        visible={isModalVisible}
+        onClose={handleModalClose}
+        modalText={`${destination}로 안내해 드릴까요?`}
+      />
     </SafeAreaView>
   );
 };
