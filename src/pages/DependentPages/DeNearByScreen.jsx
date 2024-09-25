@@ -7,20 +7,23 @@ import {
   TouchableOpacity,
   Image,
   View,
+  Text,
 } from "react-native";
 import { WebView } from "react-native-webview";
 import Constants from "expo-constants";
 import * as Location from "expo-location";
 import useImageToBase64 from "./hooks/useImageToBase64";
-import BigModal from "./components/BigModal"; // BigModal import
-import PinkButton from "./components/PinkButton"; // 안내 종료 버튼 추가
+import BigModal from "./components/BigModal";
+import PinkButton from "./components/PinkButton";
+import { getSafeZones } from "../../libs/apis/api/getSafeZones";
 
 const DeNearbyScreen = ({ navigation }) => {
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
-  const [isEmergencyModalVisible, setIsEmergencyModalVisible] = useState(false); // 긴급 모달 상태 관리
-  const [isEndModalVisible, setIsEndModalVisible] = useState(false); // 안내 종료 모달 상태 관리
-  const [isMarkerClicked, setIsMarkerClicked] = useState(false); // 마커 클릭 모달 상태 관리
+  const [isEmergencyModalVisible, setIsEmergencyModalVisible] = useState(false);
+  const [isEndModalVisible, setIsEndModalVisible] = useState(false);
+  const [isMarkerClicked, setIsMarkerClicked] = useState(false);
+  const [safeZoneData, setSafeZoneData] = useState([]); // 안전 구역 데이터를 위한 state 추가
   const appKey = "EDhNkmXDhZ6Vec82hJfcS4JbTCOk5GET8y2cFrGQ";
 
   // 현재 위치 마커 이미지 로드
@@ -52,6 +55,12 @@ const DeNearbyScreen = ({ navigation }) => {
     };
 
     startWatchingPosition();
+
+    getSafeZones().then((safeZones) => {
+      if (safeZones) {
+        setSafeZoneData(safeZones); // 상태에 안전 구역 데이터 설정
+      }
+    });
   }, []);
 
   // 이미지 로드 에러 처리
@@ -91,9 +100,11 @@ const DeNearbyScreen = ({ navigation }) => {
         // 위험 구역 마커 생성
         addDangerMarkers();
 
-        // 안전 구역 마커 생성
-        addSafeMarkers();
-      }
+    // 안전 구역 마커 생성
+      addSafeMarkers(${JSON.stringify(
+        safeZoneData
+      )}); // API로 받아온 안전 구역 데이터 전달
+    }
 
       // 위험 구역 데이터 추가 및 마커 생성
       function addDangerMarkers() {
@@ -109,7 +120,7 @@ const DeNearbyScreen = ({ navigation }) => {
         dangerData.forEach((data) => {
           var marker = new Tmapv2.Marker({
             position: new Tmapv2.LatLng(data.lat, data.lng),
-            icon: "${dangerMarkerBase64}", // 위험 구역 마커 이미지 설정
+            icon: "${dangerMarkerBase64}",
             iconSize: new Tmapv2.Size(150, 150),
             map: map
           });
@@ -121,20 +132,11 @@ const DeNearbyScreen = ({ navigation }) => {
         });
       }
 
-      // 안전 구역 데이터 추가 및 마커 생성
-      function addSafeMarkers() {
-        var safeData = [];
-        for (var i = 0; i < 100; i++) {
-          var object = {};
-          object.lng = 127.0722132 + Math.random() * 0.02;
-          object.lat = 37.5351667 + Math.random() * 0.02;
-          object.value = Math.round(Math.random() * 10); // 안전도 값
-          safeData.push(object);
-        }
-
+      // 안전 구역 데이터 추가 및 마커 생성 (API로 받은 데이터 사용)
+      function addSafeMarkers(safeData) {
         safeData.forEach((data) => {
           var marker = new Tmapv2.Marker({
-            position: new Tmapv2.LatLng(data.lat, data.lng),
+            position: new Tmapv2.LatLng(data.latitude, data.longitude),
             icon: "${safeMarkerBase64}", // 안전 구역 마커 이미지 설정
             iconSize: new Tmapv2.Size(150, 150),
             map: map
@@ -156,6 +158,12 @@ const DeNearbyScreen = ({ navigation }) => {
       <div id="map_div"></div>
     </body>
     </html>
+  `;
+
+  // WebView에 safeZoneData를 전달
+  const injectedJavaScript = `
+    window.safeZoneData = ${JSON.stringify(safeZoneData)};
+    true;
   `;
 
   // 긴급 버튼 클릭 시 모달 열기
@@ -197,6 +205,7 @@ const DeNearbyScreen = ({ navigation }) => {
             source={{ html: htmlContent }}
             style={styles.webView}
             onMessage={handleMessage}
+            injectedJavaScript={injectedJavaScript} // WebView에 데이터 전달
           />
 
           {/* 긴급 버튼 */}

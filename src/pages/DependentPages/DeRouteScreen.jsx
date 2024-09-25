@@ -12,23 +12,29 @@ import useImageToBase64 from "./hooks/useImageToBase64";
 import * as Location from "expo-location";
 import BigModal from "./components/BigModal";
 import PinkButton from "./components/PinkButton";
+import { savePath } from "../../libs/apis/api/savePath";
+import { getSafeZones } from "../../libs/apis/api/getSafeZones"; // 안전 구역 API import
 
 const DeRouteScreen = ({ navigation }) => {
   const [latitude, setLatitude] = useState(null); // 현재 위도
   const [longitude, setLongitude] = useState(null); // 현재 경도
   const [isEmergencyModalVisible, setIsEmergencyModalVisible] = useState(false); // 긴급 모달 상태
   const [isEndModalVisible, setIsEndModalVisible] = useState(false); // 안내 종료 모달 상태
+  const [routeData, setRouteData] = useState(null); // fetchRoute의 결과를 저장할 상태
+  const [safeZoneData, setSafeZoneData] = useState([]); // 안전 구역 데이터를 저장할 상태
   const appKey = "EDhNkmXDhZ6Vec82hJfcS4JbTCOk5GET8y2cFrGQ"; // TMap API Key
 
   const destination = {
-    lat: 37.5351667, // 테스트용 위도
-    lon: 127.0722132, // 테스트용 경도
+    lat: 37.560997, // 테스트용 위도
+    lon: 126.994728, // 테스트용 경도
   };
 
   const { imageBase64: startMarkerBase64, error: startMarkerError } =
     useImageToBase64(require("../DependentPages/assets/start.png"));
   const { imageBase64: endMarkerBase64, error: endMarkerError } =
     useImageToBase64(require("../DependentPages/assets/end.png"));
+  const { imageBase64: safeMarkerBase64, error: safeMarkerError } =
+    useImageToBase64(require("../DependentPages/assets/Safe.png"));
 
   useEffect(() => {
     const startWatchingPosition = async () => {
@@ -53,14 +59,23 @@ const DeRouteScreen = ({ navigation }) => {
     };
 
     startWatchingPosition();
+
+    // 안전 구역 데이터를 가져오기
+    getSafeZones().then((safeZones) => {
+      if (safeZones) {
+        setSafeZoneData(safeZones); // 상태에 안전 구역 데이터 설정
+      }
+    });
   }, []);
 
-  if (startMarkerError || endMarkerError) {
+  if (startMarkerError || endMarkerError || safeMarkerError) {
     return (
       <View style={styles.container}>
         <Text>
           Error loading image:{" "}
-          {startMarkerError?.message || endMarkerError?.message}
+          {startMarkerError?.message ||
+            endMarkerError?.message ||
+            safeMarkerError?.message}
         </Text>
       </View>
     );
@@ -94,12 +109,70 @@ const DeRouteScreen = ({ navigation }) => {
               endName: "도착지"
             })
           })
-          .then(response => response.json())
-          .then(data => data.features)
+          .then(response => response.json()) // 응답을 JSON으로 변환
+          .then(data => {
+            // 좌표 정보를 추출하여 React Native로 전송
+            const coordinates = data.features.map(feature => {
+              const geometry = feature.geometry;
+              if (geometry.type === "Point") {
+                return geometry.coordinates; // Point 타입일 경우 좌표 반환
+              } else if (geometry.type === "LineString") {
+                return geometry.coordinates; // LineString 타입일 경우 좌표 배열 반환
+              }
+            });
+
+            // React Native로 좌표 데이터를 전달
+            window.ReactNativeWebView.postMessage(JSON.stringify(coordinates));
+
+            // 좌표를 이용해 폴리라인을 지도에 그리기
+            addPolyline(JSON.stringify(coordinates));
+          })
           .catch(error => console.error("Error fetching route:", error));
         }
 
-        async function initTmap(){
+        function convertToWGS84(coord) {
+          const x = coord[0];
+          const y = coord[1];
+          const longitude = (x / 20037508.34) * 180;
+          const latitude = (180 / Math.PI) * (2 * Math.atan(Math.exp((y / 20037508.34) * Math.PI)) - Math.PI / 2);
+          return [longitude, latitude];
+        }
+
+        function addPolyline(coordinatesArray) {
+          coordinatesArray.forEach((coords) => {
+            if (coords) {
+              const path = coords.map(coord => {
+                const [lng, lat] = convertToWGS84(coord); 
+                return new Tmapv2.LatLng(lat, lng); 
+              });
+
+              var polyline = new Tmapv2.Polyline({
+                path: path, 
+                strokeColor: "#dd00dd", 
+                strokeWeight: 6, 
+                direction: true, 
+                map: map 
+              });
+            }
+          });
+        }
+
+        function addSafeMarkers(safeData) {
+          safeData.forEach((data) => {
+            var marker = new Tmapv2.Marker({
+              position: new Tmapv2.LatLng(data.latitude, data.longitude),
+              icon: "${safeMarkerBase64}", 
+              iconSize: new Tmapv2.Size(150, 150),
+              map: map
+            });
+
+            marker.addListener("click", function(evt) {
+              window.ReactNativeWebView.postMessage("safe_marker_clicked");
+            });
+          });
+        }
+
+        async function initTmap() {
           map = new Tmapv2.Map("map_div", {
             center: new Tmapv2.LatLng(${latitude}, ${longitude}),
             width: "100%",
@@ -121,24 +194,10 @@ const DeRouteScreen = ({ navigation }) => {
             map: map
           });
 
-          const routeData = await fetchRoute();
-
-          if (routeData) {
-            var polylineCoords = routeData.map(function(feature) {
-              return new Tmapv2.LatLng(
-                feature.geometry.coordinates[1],
-                feature.geometry.coordinates[0]
-              );
-            });
-
-            var polyline = new Tmapv2.Polyline({
-              path: polylineCoords,
-              strokeColor: "#dd00dd",
-              strokeWeight: 6,
-              strokeStyle: "solid",
-              map: map
-            });
-          }
+          await fetchRoute();
+          addSafeMarkers(${JSON.stringify(
+            safeZoneData
+          )}); // 안전 구역 마커 추가
         }
       </script>
       <style>
@@ -167,6 +226,12 @@ const DeRouteScreen = ({ navigation }) => {
     setIsEndModalVisible(false); // 안내 종료 모달 닫기
   };
 
+  const handleMessage = (event) => {
+    const data = JSON.parse(event.nativeEvent.data);
+    setRouteData(data);
+    console.log("Route Data:", data);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.webviewContainer}>
@@ -174,13 +239,14 @@ const DeRouteScreen = ({ navigation }) => {
           originWhitelist={["*"]}
           source={{ html: mapHTML }}
           style={styles.webview}
+          onMessage={handleMessage} // 메시지 수신 핸들러 추가
         />
         <TouchableOpacity
           style={styles.emergencyButton}
           onPress={onEmergencyPress}
         >
           <Image
-            source={require("./assets/emergency.png")} // 경로 수정
+            source={require("./assets/emergency.png")}
             style={styles.emergencyImage}
           />
         </TouchableOpacity>
@@ -196,7 +262,7 @@ const DeRouteScreen = ({ navigation }) => {
         <BigModal
           visible={isEndModalVisible}
           modalText={"안내를 종료 하시겠습니까?"}
-          onClose={handleEndModalClose} // 안내 종료 모달의 "예" 또는 "아니오" 처리
+          onClose={handleEndModalClose}
         />
 
         {/* 안내 종료 버튼 */}
@@ -206,7 +272,7 @@ const DeRouteScreen = ({ navigation }) => {
             height={70}
             fontSize={42}
             text="안내 종료"
-            onPress={onEndPress} // 안내 종료 버튼 클릭 시
+            onPress={onEndPress}
           />
         </View>
       </View>
