@@ -7,20 +7,27 @@ import {
   TouchableOpacity,
   Image,
   View,
+  Text,
 } from "react-native";
 import { WebView } from "react-native-webview";
 import Constants from "expo-constants";
 import * as Location from "expo-location";
 import useImageToBase64 from "./hooks/useImageToBase64";
-import BigModal from "./components/BigModal"; // BigModal import
-import PinkButton from "./components/PinkButton"; // 안내 종료 버튼 추가
+import BigModal from "./components/BigModal";
+import PinkButton from "./components/PinkButton";
+import { getSafeZones } from "../../libs/apis/api/getSafeZones";
+import { getDangerZones } from "../../libs/apis/api/getDangerZones";
+import { sendSOSAlert } from "../../libs/apis/api/sendSOSAlert";
 
 const DeNearbyScreen = ({ navigation }) => {
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
-  const [isEmergencyModalVisible, setIsEmergencyModalVisible] = useState(false); // 긴급 모달 상태 관리
-  const [isEndModalVisible, setIsEndModalVisible] = useState(false); // 안내 종료 모달 상태 관리
-  const [isMarkerClicked, setIsMarkerClicked] = useState(false); // 마커 클릭 모달 상태 관리
+  const [isEmergencyModalVisible, setIsEmergencyModalVisible] = useState(false);
+  const [isEndModalVisible, setIsEndModalVisible] = useState(false);
+  const [isMarkerClicked, setIsMarkerClicked] = useState(false);
+  const [safeZoneData, setSafeZoneData] = useState([]); // 안전 구역 데이터를 위한 state
+  const [dangerZoneData, setDangerZoneData] = useState([]); // 위험 구역 데이터를 위한 state
+
   const appKey = "EDhNkmXDhZ6Vec82hJfcS4JbTCOk5GET8y2cFrGQ";
 
   // 현재 위치 마커 이미지 로드
@@ -35,7 +42,7 @@ const DeNearbyScreen = ({ navigation }) => {
   const { imageBase64: safeMarkerBase64, error: safeMarkerError } =
     useImageToBase64(require("../DependentPages/assets/Safe.png"));
 
-  // 현재 위치 추적
+  // 현재 위치 추적 및 구역 데이터 가져오기
   useEffect(() => {
     const startWatchingPosition = async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -52,6 +59,19 @@ const DeNearbyScreen = ({ navigation }) => {
     };
 
     startWatchingPosition();
+
+    // 안전 구역 및 위험 구역 데이터 가져오기
+    getSafeZones().then((safeZones) => {
+      if (safeZones) {
+        setSafeZoneData(safeZones);
+      }
+    });
+
+    getDangerZones().then((dangerZones) => {
+      if (dangerZones) {
+        setDangerZoneData(dangerZones);
+      }
+    });
   }, []);
 
   // 이미지 로드 에러 처리
@@ -89,27 +109,18 @@ const DeNearbyScreen = ({ navigation }) => {
         });
 
         // 위험 구역 마커 생성
-        addDangerMarkers();
+        addDangerMarkers(${JSON.stringify(dangerZoneData)});
 
         // 안전 구역 마커 생성
-        addSafeMarkers();
+        addSafeMarkers(${JSON.stringify(safeZoneData)});
       }
 
       // 위험 구역 데이터 추가 및 마커 생성
-      function addDangerMarkers() {
-        var dangerData = [];
-        for (var i = 0; i < 100; i++) {
-          var object = {};
-          object.lng = 127.0722132 + Math.random() * 0.02;
-          object.lat = 37.5351667 + Math.random() * 0.02;
-          object.value = Math.round(Math.random() * 10); // 위험도 값
-          dangerData.push(object);
-        }
-
+      function addDangerMarkers(dangerData) {
         dangerData.forEach((data) => {
           var marker = new Tmapv2.Marker({
-            position: new Tmapv2.LatLng(data.lat, data.lng),
-            icon: "${dangerMarkerBase64}", // 위험 구역 마커 이미지 설정
+            position: new Tmapv2.LatLng(data.latitude, data.longitude),
+            icon: "${dangerMarkerBase64}",
             iconSize: new Tmapv2.Size(150, 150),
             map: map
           });
@@ -121,21 +132,12 @@ const DeNearbyScreen = ({ navigation }) => {
         });
       }
 
-      // 안전 구역 데이터 추가 및 마커 생성
-      function addSafeMarkers() {
-        var safeData = [];
-        for (var i = 0; i < 100; i++) {
-          var object = {};
-          object.lng = 127.0722132 + Math.random() * 0.02;
-          object.lat = 37.5351667 + Math.random() * 0.02;
-          object.value = Math.round(Math.random() * 10); // 안전도 값
-          safeData.push(object);
-        }
-
+      // 안전 구역 데이터 추가 및 마커 생성 (API로 받은 데이터 사용)
+      function addSafeMarkers(safeData) {
         safeData.forEach((data) => {
           var marker = new Tmapv2.Marker({
-            position: new Tmapv2.LatLng(data.lat, data.lng),
-            icon: "${safeMarkerBase64}", // 안전 구역 마커 이미지 설정
+            position: new Tmapv2.LatLng(data.latitude, data.longitude),
+            icon: "${safeMarkerBase64}",
             iconSize: new Tmapv2.Size(150, 150),
             map: map
           });
