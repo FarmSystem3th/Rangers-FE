@@ -13,21 +13,23 @@ import { WebView } from "react-native-webview";
 import Constants from "expo-constants";
 import * as Location from "expo-location";
 import useImageToBase64 from "./hooks/useImageToBase64";
-import BigModal from "./components/BigModal";
 import PinkButton from "./components/PinkButton";
 import { getSafeZones } from "../../libs/apis/api/getSafeZones";
 import { getDangerZones } from "../../libs/apis/api/getDangerZones";
-import { sendSOSAlert } from "../../libs/apis/api/sendSOSAlert";
+import SOSModal from "./components/SOSModal";
+import BigModal from "./components/BigModal";
 
 const DeNearbyScreen = ({ navigation }) => {
-  const [latitude, setLatitude] = useState(null);
-  const [longitude, setLongitude] = useState(null);
+  const [latitude, setLatitude] = useState(37.5347725);
+  const [longitude, setLongitude] = useState(126.9984693);
   const [isEmergencyModalVisible, setIsEmergencyModalVisible] = useState(false);
   const [isEndModalVisible, setIsEndModalVisible] = useState(false);
   const [isMarkerClicked, setIsMarkerClicked] = useState(false);
   const [safeZoneData, setSafeZoneData] = useState([]); // 안전 구역 데이터를 위한 state
   const [dangerZoneData, setDangerZoneData] = useState([]); // 위험 구역 데이터를 위한 state
 
+  const dependantId = 1; // 피양자 ID
+  const currentLocation = "커피빈 이태원제일기획옆점"; // 현재 위치 예시
   const appKey = "EDhNkmXDhZ6Vec82hJfcS4JbTCOk5GET8y2cFrGQ";
 
   // 현재 위치 마커 이미지 로드
@@ -54,8 +56,9 @@ const DeNearbyScreen = ({ navigation }) => {
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Highest,
       });
-      setLatitude(location.coords.latitude);
-      setLongitude(location.coords.longitude);
+      // 실시간 현재 위치 받아 올 때 다시 코드 열기
+      // setLatitude(location.coords.latitude);
+      // setLongitude(location.coords.longitude);
     };
 
     startWatchingPosition();
@@ -212,10 +215,12 @@ const DeNearbyScreen = ({ navigation }) => {
             />
           </TouchableOpacity>
 
-          {/* 긴급 모달 */}
-          <BigModal
+          {/* SOS 모달 */}
+          <SOSModal
             visible={isEmergencyModalVisible}
             modalText={"긴급상황이 맞으신가요?"}
+            dependantId={dependantId} // 피양자 ID 전달
+            currentLocation={currentLocation} // 현재 위치 전달
             onClose={() => setIsEmergencyModalVisible(false)}
           />
 

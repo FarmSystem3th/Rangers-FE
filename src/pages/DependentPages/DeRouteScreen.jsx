@@ -11,7 +11,7 @@ import { WebView } from "react-native-webview";
 import useImageToBase64 from "./hooks/useImageToBase64";
 import * as Location from "expo-location";
 import BigModal from "./components/BigModal";
-import SmallModal from "./components/SmallModal"; // SmallModal import
+import SmallModal from "./components/SmallModal";
 import PinkButton from "./components/PinkButton";
 import { getSafeZones } from "../../libs/apis/api/getSafeZones";
 import { getDangerZones } from "../../libs/apis/api/getDangerZones";
