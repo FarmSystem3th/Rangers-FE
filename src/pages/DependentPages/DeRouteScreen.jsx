@@ -29,6 +29,7 @@ const DeRouteScreen = ({ route, navigation }) => {
   const [safeZoneData, setSafeZoneData] = useState([]); // 안전 구역 데이터를 저장할 상태
   const [dangerZoneData, setDangerZoneData] = useState([]); // 위험 구역 데이터를 저장할 상태
   const [destinationInfo, setDestinationInfo] = useState(null); // 목적지 정보 저장
+  const [mapHTML, setMapHTML] = useState(null); // WebView에 표시할 HTML을 저장할 상태
   const appKey = "EDhNkmXDhZ6Vec82hJfcS4JbTCOk5GET8y2cFrGQ"; // TMap API Key
 
   // PreDeRouteScreen에서 전달된 목적지 텍스트 받기
@@ -85,20 +86,6 @@ const DeRouteScreen = ({ route, navigation }) => {
               console.log("검색된 장소의 정보:", poiInfo);
               setDestinationInfo(poiInfo);
 
-              // 길찾기 정보 저장
-              const routeSaveData = {
-                userId: 1, // 사용자 ID (예시)
-                start: startAddress, // 현재 위치의 주소
-                end: poiInfo.name, // 목적지 이름
-                startLatitude: latitude, // 현재 위치 위도
-                startLongitude: longitude, // 현재 위치 경도
-                endLatitude: poiInfo.latitude, // 목적지 위도
-                endLongitude: poiInfo.longitude, // 목적지 경도
-              };
-
-              const savedRoute = await saveRoute(routeSaveData);
-              console.log("저장된 길찾기 정보:", savedRoute);
-
               // 길찾기 경로 데이터 가져오기
               const routeOptions = {
                 headers: {
@@ -114,7 +101,6 @@ const DeRouteScreen = ({ route, navigation }) => {
                   endPoiId: poiInfo.poiId,
                   endX: poiInfo.longitude,
                   endY: poiInfo.latitude,
-                  passList: "126.92774822,37.55395475_126.92577620,37.55337145",
                   reqCoordType: "WGS84GEO",
                   startName: "%EC%B6%9C%EB%B0%9C",
                   endName: "%EB%8F%84%EC%B0%A9",
@@ -126,8 +112,83 @@ const DeRouteScreen = ({ route, navigation }) => {
 
               const routePoints = await getPedestrianRoute(routeOptions);
               if (routePoints) {
-                console.log("Route Points Data:", routePoints.join("\n"));
-                setRouteData(routePoints);
+                console.log("경로 데이터:");
+                routePoints.forEach((point) => {
+                  console.log(
+                    `Index: ${point.index}, Coordinates: ${point.coordinates.longitude}, ${point.coordinates.latitude}, Description: ${point.description}`
+                  ); // 좌표와 설명을 출력
+                });
+
+                // WebView에서 폴리라인을 그리기 위한 HTML로 좌표 전달
+                const polylineCoords = routePoints.map(
+                  (point) =>
+                    `new Tmapv2.LatLng(${point.coordinates.latitude}, ${point.coordinates.longitude})`
+                );
+
+                const htmlContent = `
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+                    <title>Nearby Map</title>
+                    <script src="https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${appKey}"></script>
+                    <script type="text/javascript">
+                      var map;
+
+                      async function initTmap() {
+                        map = new Tmapv2.Map("map_div", {
+                          center: new Tmapv2.LatLng(${latitude}, ${longitude}),
+                          width: "100%",
+                          height: "100%",
+                          zoom: 19
+                        });
+
+                        var marker_s = new Tmapv2.Marker({
+                          position: new Tmapv2.LatLng(${latitude}, ${longitude}),
+                          icon: "${startMarkerBase64}",
+                          iconSize: new Tmapv2.Size(250, 240),
+                          map: map
+                        });
+
+                        var marker_e = new Tmapv2.Marker({
+                          position: new Tmapv2.LatLng(${
+                            destinationInfo?.latitude
+                          }, ${destinationInfo?.longitude}),
+                          icon: "${endMarkerBase64}",
+                          iconSize: new Tmapv2.Size(250, 240),
+                          map: map
+                        });
+
+                        addPolyline();
+                      }
+
+                      function addPolyline() {
+                        var polyline = new Tmapv2.Polyline({
+                          path: [${polylineCoords.join(
+                            ", "
+                          )}], // 경로 좌표 배열
+                          strokeColor: "#213B6D",
+                          strokeWeight: 20,
+                          map: map // 지도 객체에 폴리라인 추가
+                        });
+                      }
+
+                      window.onload = function() {
+                        initTmap();
+                      };
+                    </script>
+                    <style>
+                      body, html { margin: 0; padding: 0; height: 100%; }
+                      #map_div { width: 100%; height: 100%; }
+                    </style>
+                  </head>
+                  <body>
+                    <div id="map_div"></div>
+                  </body>
+                  </html>
+                `;
+
+                setMapHTML(htmlContent); // WebView에서 사용할 HTML을 업데이트
               }
             }
           }
@@ -148,142 +209,19 @@ const DeRouteScreen = ({ route, navigation }) => {
     };
   }, [destination, startAddress, appKey]);
 
-  if (
-    startMarkerError ||
-    endMarkerError ||
-    safeMarkerError ||
-    dangerMarkerError
-  ) {
-    return (
-      <View style={styles.container}>
-        <Text>
-          Error loading image:{" "}
-          {startMarkerError?.message ||
-            endMarkerError?.message ||
-            safeMarkerError?.message ||
-            dangerMarkerError?.message}
-        </Text>
-      </View>
-    );
-  }
-
-  const mapHTML = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-      <title>Nearby Map</title>
-      <script src="https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${appKey}"></script>
-      <script type="text/javascript">
-        var map;
-
-        async function initTmap() {
-          map = new Tmapv2.Map("map_div", {
-            center: new Tmapv2.LatLng(${latitude}, ${longitude}),
-            width: "100%",
-            height: "100%",
-            zoom: 19
-          });
-
-          var marker_s = new Tmapv2.Marker({
-            position: new Tmapv2.LatLng(${latitude}, ${longitude}),
-            icon: "${startMarkerBase64}",
-            iconSize: new Tmapv2.Size(250, 240),
-            map: map
-          });
-
-          var marker_e = new Tmapv2.Marker({
-            position: new Tmapv2.LatLng(${destinationInfo?.latitude}, ${
-    destinationInfo?.longitude
-  }),
-            icon: "${endMarkerBase64}",
-            iconSize: new Tmapv2.Size(250, 240),
-            map: map
-          });
-
-          await fetchRoute();
-          addSafeMarkers(${JSON.stringify(
-            safeZoneData
-          )}); // 안전 구역 마커 추가
-          addDangerMarkers(${JSON.stringify(
-            dangerZoneData
-          )}); // 위험 구역 마커 추가
-        }
-        
-        function addSafeMarkers(safeData) {
-          safeData.forEach((data) => {
-            var marker = new Tmapv2.Marker({
-              position: new Tmapv2.LatLng(data.latitude, data.longitude),
-              icon: "${safeMarkerBase64}", 
-              iconSize: new Tmapv2.Size(150, 150),
-              map: map
-            });
-
-            marker.addListener("click", function(evt) {
-              window.ReactNativeWebView.postMessage("safe_marker_clicked");
-            });
-          });
-        }
-
-        function addDangerMarkers(dangerData) {
-          dangerData.forEach((data) => {
-            var marker = new Tmapv2.Marker({
-              position: new Tmapv2.LatLng(data.latitude, data.longitude),
-              icon: "${dangerMarkerBase64}",
-              iconSize: new Tmapv2.Size(150, 150),
-              map: map
-            });
-
-            marker.addListener("click", function(evt) {
-              window.ReactNativeWebView.postMessage("danger_marker_clicked");
-            });
-          });
-        }
-      </script>
-      <style>
-        body, html { margin: 0; padding: 0; height: 100%; }
-        #map_div { width: 100%; height: 100%; }
-      </style>
-    </head>
-    <body onload="initTmap()">
-      <div id="map_div"></div>
-    </body>
-    </html>
-  `;
-
-  const onEmergencyPress = () => {
-    setIsEmergencyModalVisible(true); // 긴급 모달 표시
-  };
-
-  const onEndPress = () => {
-    setIsEndModalVisible(true); // 안내 종료 모달 표시
-  };
-
-  const handleEndModalClose = (answer) => {
-    if (answer === "yes") {
-      navigation.navigate("DeMain"); // DeMainScreen으로 이동
-    }
-    setIsEndModalVisible(false); // 안내 종료 모달 닫기
-  };
-
-  const handleMessage = (event) => {
-    const data = JSON.parse(event.nativeEvent.data);
-    setRouteData(data);
-    console.log("Route Data:", data);
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.webviewContainer}>
-        <WebView
-          originWhitelist={["*"]}
-          source={{ html: mapHTML }}
-          style={styles.webview}
-          onMessage={handleMessage} // 메시지 수신 핸들러 추가
-        />
+        {mapHTML && (
+          <WebView
+            originWhitelist={["*"]}
+            source={{ html: mapHTML }}
+            style={styles.webview}
+          />
+        )}
         <TouchableOpacity
           style={styles.emergencyButton}
-          onPress={onEmergencyPress}
+          onPress={() => setIsEmergencyModalVisible(true)}
         >
           <Image
             source={require("./assets/emergency.png")}
@@ -291,28 +229,25 @@ const DeRouteScreen = ({ route, navigation }) => {
           />
         </TouchableOpacity>
 
-        {/* 긴급 모달 */}
         <BigModal
           visible={isEmergencyModalVisible}
           modalText={"긴급상황이 맞으신가요?"}
-          onClose={() => setIsEmergencyModalVisible(false)} // 긴급 모달 닫기
+          onClose={() => setIsEmergencyModalVisible(false)}
         />
 
-        {/* 안내 종료 모달 */}
         <BigModal
           visible={isEndModalVisible}
           modalText={"안내를 종료 하시겠습니까?"}
-          onClose={handleEndModalClose}
+          onClose={() => setIsEndModalVisible(false)}
         />
 
-        {/* 안내 종료 버튼 */}
         <View style={styles.buttonContainer}>
           <PinkButton
             width={250}
             height={70}
             fontSize={42}
             text="안내 종료"
-            onPress={onEndPress}
+            onPress={() => setIsEndModalVisible(true)}
           />
         </View>
       </View>

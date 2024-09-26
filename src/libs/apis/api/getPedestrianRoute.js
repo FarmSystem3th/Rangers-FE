@@ -16,10 +16,20 @@ export async function getPedestrianRoute(options) {
         .filter(feature => feature.geometry.type === 'Point') // 포인트 타입만 필터링
         .map((feature, index) => {
           const { coordinates } = feature.geometry;
-          return `Index ${index}: ${coordinates[0]}, ${coordinates[1]}`; // 인덱스와 좌표 출력
+          const description = feature.properties.description || "No description"; // description을 가져옴
+          
+          // 좌표와 설명을 구조화된 객체로 반환
+          return {
+            index,
+            coordinates: {
+              longitude: coordinates[0],
+              latitude: coordinates[1],
+            },
+            description
+          };
         });
 
-      return routePoints; // 경유 지점을 반환
+      return routePoints; // 경유 지점을 객체 형태로 반환
     } else {
       console.error(`오류 발생: ${response.status}`);
       return null;
