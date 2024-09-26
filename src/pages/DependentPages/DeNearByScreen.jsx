@@ -17,6 +17,7 @@ import BigModal from "./components/BigModal";
 import PinkButton from "./components/PinkButton";
 import { getSafeZones } from "../../libs/apis/api/getSafeZones";
 import { getDangerZones } from "../../libs/apis/api/getDangerZones";
+import { sendSOSAlert } from "../../libs/apis/api/sendSOSAlert";
 
 const DeNearbyScreen = ({ navigation }) => {
   const [latitude, setLatitude] = useState(null);

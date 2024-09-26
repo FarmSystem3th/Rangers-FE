@@ -11,6 +11,7 @@ import { WebView } from "react-native-webview";
 import useImageToBase64 from "./hooks/useImageToBase64";
 import * as Location from "expo-location";
 import BigModal from "./components/BigModal";
+import SmallModal from "./components/SmallModal"; // SmallModal import
 import PinkButton from "./components/PinkButton";
 import { getSafeZones } from "../../libs/apis/api/getSafeZones";
 import { getDangerZones } from "../../libs/apis/api/getDangerZones";
@@ -25,6 +26,8 @@ const DeRouteScreen = ({ route, navigation }) => {
   const [startAddress, setStartAddress] = useState("현재 위치"); // 현재 위치 주소 저장
   const [isEmergencyModalVisible, setIsEmergencyModalVisible] = useState(false); // 긴급 모달 상태
   const [isEndModalVisible, setIsEndModalVisible] = useState(false); // 안내 종료 모달 상태
+  const [isSmallModalVisible, setIsSmallModalVisible] = useState(false); // SmallModal 상태
+  const [firstDescription, setFirstDescription] = useState(""); // 첫 번째 description 저장
   const [routeData, setRouteData] = useState(null); // fetchRoute의 결과를 저장할 상태
   const [safeZoneData, setSafeZoneData] = useState([]); // 안전 구역 데이터를 저장할 상태
   const [dangerZoneData, setDangerZoneData] = useState([]); // 위험 구역 데이터를 저장할 상태
@@ -118,6 +121,12 @@ const DeRouteScreen = ({ route, navigation }) => {
                     `Index: ${point.index}, Coordinates: ${point.coordinates.longitude}, ${point.coordinates.latitude}, Description: ${point.description}`
                   ); // 좌표와 설명을 출력
                 });
+
+                // 첫 번째 인덱스의 description 설정
+                if (routePoints.length > 0) {
+                  setFirstDescription(routePoints[0].description);
+                  setIsSmallModalVisible(true); // 첫 번째 인덱스 모달 띄우기
+                }
 
                 // WebView에서 폴리라인을 그리기 위한 HTML로 좌표 전달
                 const polylineCoords = routePoints.map(
@@ -239,6 +248,13 @@ const DeRouteScreen = ({ route, navigation }) => {
           visible={isEndModalVisible}
           modalText={"안내를 종료 하시겠습니까?"}
           onClose={() => setIsEndModalVisible(false)}
+        />
+
+        {/* 첫 번째 경로 설명을 보여주는 SmallModal */}
+        <SmallModal
+          visible={isSmallModalVisible}
+          modalText={firstDescription}
+          onClose={() => setIsSmallModalVisible(false)}
         />
 
         <View style={styles.buttonContainer}>
